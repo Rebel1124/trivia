@@ -6,6 +6,61 @@ import json
 import pandas as pd
 import random
 
+#https://opentdb.com/api.php?amount=50&category=21&difficulty=medium&type=multiple
+
+with urlopen("https://opentdb.com/api.php?amount=50&category=21&difficulty=medium&type=multiple") as webpage:
+    data = json.loads(webpage.read().decode())
+    df = pd.DataFrame(data["results"])
+    
+    print(df.columns)
+    
+def preload_data(idx):
+    question = df["question"][idx]
+    correct = df["correct_answer"][idx]
+    wrong = df["incorrect_answers"][idx]
+    
+    formatting = [
+    ("#039;", "'"),
+    ("&'", "'"),
+    ("&quot;", '"'),
+    ("&lt;", "less than SYMBOL"),
+    ("&gt;", "greater than SYMBOL")
+    ]
+
+    for tuple in formatting:
+        question = question.replace(tuple[0], tuple[1])
+        correct = correct.replace(tuple[0], tuple[1])
+
+    for tuple in formatting:
+        wrong = [char.replace(tuple[0], tuple[1]) for char in wrong]
+    
+    parameters["question"].append(question)
+    parameters["correct"].append(correct)
+    
+    all_answers = wrong + [correct]
+    
+    random.shuffle(all_answers)
+    
+    parameters["answer1"].append(all_answers[0])
+    parameters["answer2"].append(all_answers[1])
+    parameters["answer3"].append(all_answers[2])
+    parameters["answer4"].append(all_answers[3])
+    
+    print(parameters["correct"][-1])
+    
+parameters = {
+    "question": [],
+    "answer1": [],
+    "answer2": [],
+    "answer3": [],
+    "answer4": [],
+    "correct": [],
+    "score": [],
+    "index": []
+}
+    
+
+
 #global dictionary of dynamically changing widgets
 widgets = {
     "logo": [],
@@ -32,9 +87,24 @@ def clear_widgets():
         for i in range(0, len(widgets[widget])):
             widgets[widget].pop()
 
+            
+def clear_parameters():
+    for parm in parameters:
+        if parameters[parm] != []:
+            for i in range(0, len(parameters[parm])):
+                parameters[parm].pop()
+                
+    parameters["index"].append(random.randint(0,49))
+    parameters["score"].append(0)
+            
+
 def start_game():
     #start the game, reset all widgets
     clear_widgets()
+    clear_parameters()
+    
+    preload_data(parameters["index"][-1])
+    
     frame2()
 
 def create_buttons(answer, l_margin, r_margin):
@@ -60,13 +130,50 @@ def create_buttons(answer, l_margin, r_margin):
         }
         '''
     )
+    
+    button.clicked.connect(lambda x: is_correct(button))
+    
     return button
+
+
+def is_correct(btn):
+    if btn.text() == parameters["correct"][-1]:
+        #print('_____________________________')
+        #print(btn.text() + " is correct")
+        #print('_____________________________')
+        
+        temp_score = parameters["score"][-1]
+        parameters["score"].pop()
+        parameters["score"].append(temp_score + 10)
+        
+        parameters["index"].pop()
+        parameters["index"].append(random.randint(0,49))
+        
+        preload_data(parameters["index"][-1])
+        
+        widgets["score"][-1].setText(str(parameters["score"][-1]))
+        widgets["question"][0].setText(parameters["question"][-1])
+        widgets["answer1"][0].setText(parameters["answer1"][-1])
+        widgets["answer2"][0].setText(parameters["answer2"][-1])
+        widgets["answer3"][0].setText(parameters["answer3"][-1])
+        widgets["answer4"][0].setText(parameters["answer4"][-1])
+        
+        if parameters["score"][-1] == 100:
+            clear_widgets()
+            frame3()
+        
+    else:
+        clear_widgets()
+        frame4()
 
 #*********************************************
 #                  FRAME 1
 #*********************************************
 
 def frame1():
+    
+    clear_widgets()
+    
     #logo widget
     image = QPixmap("logo.png")
     logo = QLabel()
@@ -106,8 +213,9 @@ def frame1():
 #*********************************************
 
 def frame2():
+       
     #score widget
-    score = QLabel("80")
+    score = QLabel(str(parameters["score"][-1]))
     score.setAlignment(QtCore.Qt.AlignRight)
     score.setStyleSheet(
         '''
@@ -123,7 +231,7 @@ def frame2():
     widgets["score"].append(score)
 
     #question widget
-    question = QLabel("Placeholder text will go here blah blah")
+    question = QLabel(parameters["question"][-1])
     question.setAlignment(QtCore.Qt.AlignCenter)
     question.setWordWrap(True)
     question.setStyleSheet(
@@ -137,10 +245,10 @@ def frame2():
     widgets["question"].append(question)
 
     #answer button widgets
-    button1 = create_buttons("answer1", 85, 5)
-    button2 = create_buttons("answer2", 5, 85)
-    button3 = create_buttons("answer3", 85, 5)
-    button4 = create_buttons("answer4", 5, 85)
+    button1 = create_buttons(parameters["answer1"][-1], 85, 5)
+    button2 = create_buttons(parameters["answer2"][-1], 5, 85)
+    button3 = create_buttons(parameters["answer3"][-1], 85, 5)
+    button4 = create_buttons(parameters["answer4"][-1], 5, 85)
 
     widgets["answer1"].append(button1)
     widgets["answer2"].append(button2)
@@ -196,6 +304,7 @@ def frame3():
         "*{background:'#BC006C'; padding:25px 0px; border: 1px solid '#BC006C'; color: 'white'; font-family: 'Arial'; font-size: 25px; border-radius: 40px; margin: 10px 300px;} *:hover{background:'#ff1b9e';}"
         )
     button.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+    button.clicked.connect(frame1)
 
     widgets["button"].append(button)
 
@@ -229,7 +338,7 @@ def frame4():
     widgets["message"].append(message)
 
     #score widget
-    score = QLabel("50")
+    score = QLabel(str(parameters["score"][-1]))
     score.setStyleSheet("font-size: 100px; color: white; margin: 0 75px 0px 75px;")
     widgets["score"].append(score)
 
@@ -250,6 +359,7 @@ def frame4():
         }'''
         )
     button.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+    button.clicked.connect(frame1)
 
     widgets["button"].append(button)
 
